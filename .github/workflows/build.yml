@@ -27,28 +27,30 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Locate preinstalled Android SDK
+        run: |
+          SDK="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_SDK_ROOT=$SDK" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$SDK"     >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$SDK/ndk/${NDK_VERSION}" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$SDK/ndk/${NDK_VERSION}" >> $GITHUB_ENV
+          echo "$SDK/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$SDK/platform-tools"           >> $GITHUB_PATH
+          ls "$SDK" || true
 
       - name: Install NDK, build-tools, CMake
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "ndk;${NDK_VERSION}" \
-                     "build-tools;33.0.2" \
-                     "platforms;android-${ANDROID_API}" \
-                     "cmake;3.22.1"
-
-      - name: Export SDK/NDK env
-        run: |
-          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          echo "ANDROID_SDK_ROOT=$SDK"     >> $GITHUB_ENV
-          echo "ANDROID_HOME=$SDK"         >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$SDK/ndk/${NDK_VERSION}"  >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$SDK/ndk/${NDK_VERSION}"  >> $GITHUB_ENV
+          SDK="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          SDKMGR="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMGR" --licenses > /dev/null || true
+          "$SDKMGR" "ndk;${NDK_VERSION}" \
+                    "build-tools;33.0.2" \
+                    "platforms;android-${ANDROID_API}" \
+                    "cmake;3.22.1"
 
       - name: Create local.properties if Android project present
         run: |
-          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          SDK="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           if [ -d "android" ]; then
             {
               echo "sdk.dir=$SDK"
@@ -84,8 +86,8 @@ jobs:
           elif [ -x "./gradlew" ]; then
             ./gradlew --no-daemon assembleDebug
           else
-            echo "Brak gradlew — to repo nie zawiera buildu Android."
-            find . -maxdepth 3 -name "*.gradle*" -o -name "Android.mk" -o -name "CMakeLists.txt" | head -50
+            echo "Brak gradlew — repo nie zawiera buildu Android."
+            find . -maxdepth 3 \( -name "*.gradle*" -o -name "Android.mk" -o -name "CMakeLists.txt" \) | head -50
             exit 1
           fi
 
