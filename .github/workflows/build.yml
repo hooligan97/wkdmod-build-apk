@@ -1,0 +1,38 @@
+name: Build wkdmod APK
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Clone wkdmod source
+      run: |
+        git clone --recursive https://github.com/wkdgmr/wkdmod.git .
+
+    - name: Build APK with Gradle
+      run: |
+        chmod +x gradlew
+        ./gradlew assembleRelease
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wkdmod-universal-release
+        path: app/build/outputs/apk/release/*.apk
+        
