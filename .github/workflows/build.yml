@@ -11,6 +11,7 @@ jobs:
     env:
       NDK_VERSION: 25.2.9519653
       ANDROID_API: 33
+      ANDROID_DIR: android-project
 
     steps:
       - name: Checkout wkdmod source
@@ -36,7 +37,6 @@ jobs:
           echo "ANDROID_NDK_ROOT=$SDK/ndk/${NDK_VERSION}" >> $GITHUB_ENV
           echo "$SDK/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$SDK/platform-tools"           >> $GITHUB_PATH
-          ls "$SDK" || true
 
       - name: Install NDK, build-tools, CMake
         run: |
@@ -48,28 +48,28 @@ jobs:
                     "platforms;android-${ANDROID_API}" \
                     "cmake;3.22.1"
 
-      - name: Create local.properties if Android project present
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Create local.properties
         run: |
           SDK="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
-          if [ -d "android" ]; then
-            {
-              echo "sdk.dir=$SDK"
-              echo "ndk.dir=$SDK/ndk/${NDK_VERSION}"
-            } > android/local.properties
-            cat android/local.properties
+          echo "sdk.dir=$SDK"                                  >  "${ANDROID_DIR}/local.properties"
+          echo "ndk.dir=$SDK/ndk/${NDK_VERSION}"               >> "${ANDROID_DIR}/local.properties"
+          cat "${ANDROID_DIR}/local.properties"
+
+      - name: Generate Gradle wrapper (jeśli brak)
+        working-directory: ${{ env.ANDROID_DIR }}
+        run: |
+          if [ ! -x "./gradlew" ]; then
+            gradle wrapper --gradle-version 8.7
           fi
+          chmod +x ./gradlew
 
       - name: Install ccache
         run: sudo apt-get update && sudo apt-get install -y ccache
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: gradle-${{ runner.os }}-
 
       - name: Cache ccache
         uses: actions/cache@v4
@@ -79,23 +79,15 @@ jobs:
           restore-keys: ccache-${{ runner.os }}-
 
       - name: Build APK (debug, signed)
+        working-directory: ${{ env.ANDROID_DIR }}
         run: |
-          if [ -x "android/gradlew" ]; then
-            cd android
-            ./gradlew --no-daemon assembleDebug
-          elif [ -x "./gradlew" ]; then
-            ./gradlew --no-daemon assembleDebug
-          else
-            echo "Brak gradlew — repo nie zawiera buildu Android."
-            find . -maxdepth 3 \( -name "*.gradle*" -o -name "Android.mk" -o -name "CMakeLists.txt" \) | head -50
-            exit 1
-          fi
+          ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: wkdmod-debug-apk
           path: |
-            **/build/outputs/apk/debug/*.apk
-            **/build/outputs/apk/release/*.apk
+            android-project/**/build/outputs/apk/debug/*.apk
+            android-project/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
