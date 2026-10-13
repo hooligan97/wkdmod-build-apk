@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      ANDROID_HOME: /usr/local/lib/android/sdk
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -18,12 +21,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Accept Android SDK licenses
         run: |
-          yes | sdkmanager --licenses || true
+          mkdir -p $ANDROID_SDK_ROOT/licenses
+          echo "24333f1a95bf69145f1b1f6efd305602418e9508" > $ANDROID_SDK_ROOT/licenses/android-sdk-license
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
 
       - name: Build APK with Gradle
         run: |
