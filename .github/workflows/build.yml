@@ -1,4 +1,4 @@
-name: Build wkdmod APK
+name: Build wkdmod APK (armeabi-v7a)
 
 on:
   push:
@@ -12,6 +12,7 @@ jobs:
       NDK_VERSION: 25.2.9519653
       ANDROID_API: 33
       ANDROID_DIR: android-project
+      TARGET_ABI: armeabi-v7a
 
     steps:
       - name: Checkout wkdmod source
@@ -55,24 +56,14 @@ jobs:
           echo "ndk.dir=$SDK/ndk/${NDK_VERSION}"    >> "${ANDROID_DIR}/local.properties"
           cat "${ANDROID_DIR}/local.properties"
 
-      # === DIAGNOSTYKA — tylko wypisuje pliki do logu, nic nie zmienia ===
-      - name: Show current ABI config
+      - name: Patch abiFilters to armeabi-v7a only
         run: |
-          echo "=== app/build.gradle ==="
-          cat "${ANDROID_DIR}/app/build.gradle" || true
-          echo ""
-          echo "=== android-project/build.gradle ==="
-          cat "${ANDROID_DIR}/build.gradle" || true
-          echo ""
-          echo "=== gradle.properties ==="
-          cat "${ANDROID_DIR}/gradle.properties" || true
-          echo ""
-          echo "=== szukam abiFilters w całym repo ==="
-          grep -rn "abiFilters\|injected.build.abi\|ndk {" "${ANDROID_DIR}" 2>/dev/null || echo "brak trafień"
-          echo ""
-          echo "=== szukam APP_ABI / ANDROID_ABI w CMakeLists ==="
-          grep -rn "ANDROID_ABI\|APP_ABI\|armeabi" --include="CMakeLists.txt" --include="*.cmake" . 2>/dev/null | head -50 || true
-      # === KONIEC DIAGNOSTYKI ===
+          GRADLE_FILE="${ANDROID_DIR}/app/build.gradle"
+          echo "=== przed patchem ==="
+          grep -n "abiFilters" "$GRADLE_FILE" || true
+          sed -i -E "s/abiFilters[[:space:]]+'[^']*'([[:space:]]*,[[:space:]]*'[^']*')*/abiFilters '${TARGET_ABI}'/" "$GRADLE_FILE"
+          echo "=== po patchu ==="
+          grep -n "abiFilters" "$GRADLE_FILE" || true
 
       - name: Install ccache
         run: sudo apt-get update && sudo apt-get install -y ccache
@@ -83,27 +74,33 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles(format('{0}/**/*.gradle*', env.ANDROID_DIR), format('{0}/gradle/wrapper/gradle-wrapper.properties', env.ANDROID_DIR)) }}
-          restore-keys: gradle-${{ runner.os }}-
+          key: gradle-armv7-${{ runner.os }}-${{ hashFiles(format('{0}/**/*.gradle*', env.ANDROID_DIR)) }}
+          restore-keys: gradle-armv7-${{ runner.os }}-
 
       - name: Cache ccache
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-${{ runner.os }}-${{ github.sha }}
-          restore-keys: ccache-${{ runner.os }}-
+          key: ccache-armv7-${{ runner.os }}-${{ github.sha }}
+          restore-keys: ccache-armv7-${{ runner.os }}-
 
-      - name: Build APK (debug)
+      - name: Build APK (debug, armeabi-v7a)
         working-directory: ${{ env.ANDROID_DIR }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
 
+      - name: Verify APK contains only armeabi-v7a
+        run: |
+          APK=$(find "${ANDROID_DIR}" -path '*/build/outputs/apk/debug/*.apk' | head -1)
+          echo "APK: $APK"
+          echo "=== zawartość lib/ w APK ==="
+          unzip -l "$APK" | grep -E 'lib/' || echo "(brak lib/)"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wkdmod-debug-apk
+          name: wkdmod-armeabi-v7a-debug-apk
           path: |
             android-project/**/build/outputs/apk/debug/*.apk
-            android-project/**/build/outputs/apk/release/*.apk
           if-no-files-found: error
