@@ -48,25 +48,29 @@ jobs:
                     "platforms;android-${ANDROID_API}" \
                     "cmake;3.22.1"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
+      - name: Show Gradle wrapper version
+        working-directory: ${{ env.ANDROID_DIR }}
+        run: |
+          echo "=== gradle-wrapper.properties ==="
+          cat gradle/wrapper/gradle-wrapper.properties || true
+          echo "=== gradlew permissions ==="
+          ls -la gradlew gradle/wrapper/ || true
 
       - name: Create local.properties
         run: |
           SDK="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
-          echo "sdk.dir=$SDK"                                  >  "${ANDROID_DIR}/local.properties"
-          echo "ndk.dir=$SDK/ndk/${NDK_VERSION}"               >> "${ANDROID_DIR}/local.properties"
+          echo "sdk.dir=$SDK"                       >  "${ANDROID_DIR}/local.properties"
+          echo "ndk.dir=$SDK/ndk/${NDK_VERSION}"    >> "${ANDROID_DIR}/local.properties"
           cat "${ANDROID_DIR}/local.properties"
 
-      - name: Generate Gradle wrapper (jeśli brak)
-        working-directory: ${{ env.ANDROID_DIR }}
-        run: |
-          if [ ! -x "./gradlew" ]; then
-            gradle wrapper --gradle-version 8.7
-          fi
-          chmod +x ./gradlew
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles(format('{0}/**/*.gradle*', env.ANDROID_DIR), format('{0}/gradle/wrapper/gradle-wrapper.properties', env.ANDROID_DIR)) }}
+          restore-keys: gradle-${{ runner.os }}-
 
       - name: Install ccache
         run: sudo apt-get update && sudo apt-get install -y ccache
@@ -78,9 +82,10 @@ jobs:
           key: ccache-${{ runner.os }}-${{ github.sha }}
           restore-keys: ccache-${{ runner.os }}-
 
-      - name: Build APK (debug, signed)
+      - name: Build APK (debug)
         working-directory: ${{ env.ANDROID_DIR }}
         run: |
+          chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK artifact
@@ -89,5 +94,5 @@ jobs:
           name: wkdmod-debug-apk
           path: |
             android-project/**/build/outputs/apk/debug/*.apk
-            android-project/app/build/outputs/apk/debug/*.apk
+            android-project/**/build/outputs/apk/release/*.apk
           if-no-files-found: error
