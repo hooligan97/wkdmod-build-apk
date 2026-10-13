@@ -18,10 +18,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Clone wkdmod source
-        run: |
-          git clone --recursive https://github.com/wkdgmr/wkdmod.git .
-
       - name: Build APK with Gradle
         run: |
           chmod +x gradlew
@@ -32,4 +28,3 @@ jobs:
         with:
           name: wkdmod-universal-release
           path: app/build/outputs/apk/release/*.apk
-          
