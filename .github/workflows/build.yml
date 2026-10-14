@@ -1,25 +1,24 @@
-name: Build wkdmod APK (Xiaomi arm64-v8a)
+name: Build DevilutionX APK (Xiaomi arm64-v8a)
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     env:
-      DEVX_VERSION: 1.5.4  # Wersja z fixem na high refresh rate [citation:10][citation:12]
       NDK_VERSION: 25.2.9519653
       ANDROID_API: 33
       ANDROID_DIR: android-project
       TARGET_ABI: arm64-v8a
 
     steps:
-      - name: Checkout wkdmod source
+      - name: Checkout DevilutionX source
         uses: actions/checkout@v4
         with:
-          repository: wkdgmr/wkdmod
+          repository: hooligan97/DevilutionX
           ref: master
           submodules: recursive
           fetch-depth: 0
@@ -59,8 +58,11 @@ jobs:
       - name: Patch ABI to arm64-v8a only
         run: |
           GRADLE_FILE="${ANDROID_DIR}/app/build.gradle"
+          echo "=== przed patchem ==="
+          grep -n "abiFilters" "$GRADLE_FILE" || true
           sed -i -E "s/abiFilters[[:space:]]+'[^']*'([[:space:]]*,[[:space:]]*'[^']*')*/abiFilters '${TARGET_ABI}'/" "$GRADLE_FILE"
-          grep -n "abiFilters" "$GRADLE_FILE"
+          echo "=== po patchu ==="
+          grep -n "abiFilters" "$GRADLE_FILE" || true
 
       - name: Build APK (debug, arm64-v8a)
         working-directory: ${{ env.ANDROID_DIR }}
@@ -71,10 +73,12 @@ jobs:
       - name: Verify APK contains only arm64-v8a
         run: |
           APK=$(find "${ANDROID_DIR}" -path '*/build/outputs/apk/debug/*.apk' | head -1)
-          unzip -l "$APK" | grep -E 'lib/' || true
+          echo "APK: $APK"
+          unzip -l "$APK" | grep -E 'lib/' || echo "(brak lib/)"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wkdmod-xiaomi-arm64-v8a-debug-apk
+          name: devilutionx-xiaomi-arm64-v8a-debug-apk
           path: android-project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
