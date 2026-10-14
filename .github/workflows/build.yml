@@ -1,18 +1,19 @@
-name: Build wkdmod APK (armeabi-v7a)
+name: Build wkdmod APK (Xiaomi arm64-v8a)
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     env:
+      DEVX_VERSION: 1.5.4  # Wersja z fixem na high refresh rate [citation:10][citation:12]
       NDK_VERSION: 25.2.9519653
       ANDROID_API: 33
       ANDROID_DIR: android-project
-      TARGET_ABI: armeabi-v7a
+      TARGET_ABI: arm64-v8a
 
     steps:
       - name: Checkout wkdmod source
@@ -54,53 +55,26 @@ jobs:
           SDK="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           echo "sdk.dir=$SDK"                       >  "${ANDROID_DIR}/local.properties"
           echo "ndk.dir=$SDK/ndk/${NDK_VERSION}"    >> "${ANDROID_DIR}/local.properties"
-          cat "${ANDROID_DIR}/local.properties"
 
-      - name: Patch abiFilters to armeabi-v7a only
+      - name: Patch ABI to arm64-v8a only
         run: |
           GRADLE_FILE="${ANDROID_DIR}/app/build.gradle"
-          echo "=== przed patchem ==="
-          grep -n "abiFilters" "$GRADLE_FILE" || true
           sed -i -E "s/abiFilters[[:space:]]+'[^']*'([[:space:]]*,[[:space:]]*'[^']*')*/abiFilters '${TARGET_ABI}'/" "$GRADLE_FILE"
-          echo "=== po patchu ==="
-          grep -n "abiFilters" "$GRADLE_FILE" || true
+          grep -n "abiFilters" "$GRADLE_FILE"
 
-      - name: Install ccache
-        run: sudo apt-get update && sudo apt-get install -y ccache
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-armv7-${{ runner.os }}-${{ hashFiles(format('{0}/**/*.gradle*', env.ANDROID_DIR)) }}
-          restore-keys: gradle-armv7-${{ runner.os }}-
-
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ccache-armv7-${{ runner.os }}-${{ github.sha }}
-          restore-keys: ccache-armv7-${{ runner.os }}-
-
-      - name: Build APK (debug, armeabi-v7a)
+      - name: Build APK (debug, arm64-v8a)
         working-directory: ${{ env.ANDROID_DIR }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
 
-      - name: Verify APK contains only armeabi-v7a
+      - name: Verify APK contains only arm64-v8a
         run: |
           APK=$(find "${ANDROID_DIR}" -path '*/build/outputs/apk/debug/*.apk' | head -1)
-          echo "APK: $APK"
-          echo "=== zawartość lib/ w APK ==="
-          unzip -l "$APK" | grep -E 'lib/' || echo "(brak lib/)"
+          unzip -l "$APK" | grep -E 'lib/' || true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wkdmod-armeabi-v7a-debug-apk
-          path: |
-            android-project/**/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          name: wkdmod-xiaomi-arm64-v8a-debug-apk
+          path: android-project/**/build/outputs/apk/debug/*.apk
