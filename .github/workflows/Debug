@@ -1,0 +1,34 @@
+import struct
+import sys
+
+def patch_save_file(filepath):
+    try:
+        with open(filepath, "r+b") as f:
+            data = bytearray(f.read())
+            
+            # Przykładowe przesunięcia (offsety) dla struktury zapisu Hellfire w DevilutionX:
+            # Wartości zapisywane są jako liczby 32-bitowe typu Little Endian.
+            # Poziom (Level) zazwyczaj znajduje się w stałym nagłówku postaci.
+            
+            print(Odczytano plik: {filepath} (Rozmiar: {len(data)} bajtów))
+            
+            # Przykład modyfikacji złota (jeśli znasz offset lub szukasz struktury)
+            # Możesz dostosować wartości poniżej:
+            new_level = 30
+            new_gold = 500000
+            
+            # Wpisywanie poziomu (przykładowy bezpieczny offset dla testów, 
+            # zaleca się użycie edytora online, jeśli struktura się różni)
+            # data[offset:offset+4] = struct.pack('<I', new_level)
+            
+            print("Pamiętaj, że struktura binarna wymaga precyzyjnych offsetów.")
+            print("Zalecamy użycie edytora online lub sprawdzenie sumy kontrolnej.")
+            
+    except Exception as e:
+        print(f"Błąd podczas edycji pliku: {e}")
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        patch_save_file(sys.argv[1])
+    else:
+        print("Użycie: python edit_save.py ścieżka_do_pliku.hsv")
